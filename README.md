@@ -1,13 +1,21 @@
-### raspberryview
+# raspberryview
 
 An embedded image recognition processor.
-======
-Command line image license plate reader.  Derived from PyALPR: https://github.com/lukagabric/PyALPR/blob/master/README.md
 
-Usage:
+Current prototype is a command line image license plate reader.  Derived from PyALPR: https://github.com/lukagabric/PyALPR/blob/master/README.md
+
+###Dependencies:
+
+####Docker 
+Pull the OpenALPR docker image from Docker Hub.
 ``` shell
-# Run with an Image directory
-python -m raspView <image-directory>
+docker pull openalpr/openalpr
+```
+
+###Usage:
+``` shell
+# Run with an the name of a directory containing test images.
+python -m raspView <image-directory-name>
 # Run with a webcam setup 
 python -m raspView
 ```

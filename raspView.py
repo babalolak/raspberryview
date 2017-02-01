@@ -1,4 +1,4 @@
-import json, shlex, subprocess,os, sys
+import json, shlex, subprocess, glob, os, sys
 
 #KB Update.  Calling Docker process instead of alpr from command line.
 class PlateReader:
@@ -14,8 +14,8 @@ class PlateReader:
         #alpr subprocess args
         #Note the 'us' country code has a bug that causes Docker 
         #to not find the image in the mounted volume.  This may affect accuracy!
-        alpr_command = "docker run -it --rm -v"+self.dir+":/data:ro openalpr -c eu -d --json alpr.jpg"#alpr -c eu -t hr -n 300 -j alpr.jpg"
-        self.alpr_command_args = shlex.split(alpr_command)
+        self.alpr_command = "docker run -it --rm -v"+self.dir+":/data:ro openalpr/openalpr -c eu -d --json alpr.jpg"#alpr -c eu -t hr -n 300 -j alpr.jpg"
+        self.alpr_command_args = shlex.split(self.alpr_command)
 
 
     def webcam_subprocess(self):
@@ -24,8 +24,9 @@ class PlateReader:
 
     def alpr_subprocess(self, pic=None):
         if pic is not None:
-            alpr_command = "docker run -it --rm -v"+self.dir+":/data:ro openalpr -c eu -d --json " + pic
-            self.alpr_command_args = shlex.split(alpr_command)
+            self.alpr_command = "docker run -it --rm -v"+self.dir+":/data:ro openalpr/openalpr -c eu -d --json " + pic
+        # print "COMMAND:  ",self.alpr_command
+        self.alpr_command_args = shlex.split(self.alpr_command)
         return subprocess.Popen(self.alpr_command_args, stdout=subprocess.PIPE)
 
 
@@ -39,15 +40,15 @@ class PlateReader:
             return None, alpr_error
         elif "No license plates found." in alpr_out:
             return None, None
-
         try:
             return json.loads("{"+alpr_out.split('{',1)[1]), None#json.loads(alpr_out), None
         except ValueError, e:
             return None, e        
 
     def read_dir(self):
-        files = os.listdir(self.dir)
-        for pic in files:
+        
+        image_list = [item.split("/")[-1] for i in [glob.glob(self.dir+'/*.%s' % ext) for ext in ["jpg","gif","png","tga"]] for item in i]
+        for pic in image_list:
             yield pic
 
     def read_pics(self, pic=None):
