@@ -32,8 +32,10 @@ class PlateReader:
 
     def alpr_json_results(self,pic=None):
 
+        #ADD EXCEPTIONS FOR DOCKER DAEMON!!!!
         if pic is None:
-            self.webcam_subprocess().communicate()
+                self.webcam_subprocess().communicate()
+
         alpr_out, alpr_error = self.alpr_subprocess(pic).communicate()
 
         if not alpr_error is None:
@@ -89,15 +91,16 @@ class PlateReader:
                 self.read_pics(pic)
 def main(argv=None):
     arg = None
+    if len(argv) != 2:
+        print(
+            "Give the path to the examples/images directory as the argument to this "
+            "program. For example:\n"
+            "    ./raspView.py ./example/images")
+        exit()
     if argv is not None:
-        try:
-        ###ADD CHECK FOR PROPER ARGUMENTS
-            arg = argv[1]
-        except Exception, e:
-            print "Problem with sys arguments",e
-            return
-        plate_reader = PlateReader(arg)
-        plate_reader.read_plates()
+        arg = argv[1]
+    plate_reader = PlateReader(arg)
+    plate_reader.read_plates()
 
 if __name__=="__main__":
     main(sys.argv)
