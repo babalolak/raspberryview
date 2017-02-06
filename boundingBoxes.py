@@ -47,9 +47,9 @@ class BoundingBoxes(object):
     def calcBB(self):
         bbs = []
         for shape in self.shapes:
-            x = [e[0] for e in shape]# for e in tup]
-            y = [e[1] for e in shape]
+            row = [e[0] for e in shape]# for e in tup]
+            col = [e[1] for e in shape]
             # bbs.append(dict(left=int(min(x)), top=int(max(y)), right=int(max(x)), bottom=int(min(y))))
-            bbs.append(dlib.rectangle(left=int(min(x)), top=int(max(y)), right=int(max(x)), bottom=int(min(y))))
+            bbs.append(dlib.rectangle(left=int(min(col)), top=int(min(row)), right=int(max(col)), bottom=int(max(row))))
 
         return bbs

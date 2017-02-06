@@ -69,6 +69,22 @@ def train(train,model,test,flips,C,threads,verbose):
         testImages = testSet.images
         testBoxes = testSet.boxes
 
+    count = 1
+    width = 0
+    height = 0
+    for i in boxes:
+        for box in i:
+            width += box.width()
+            height += box.height()
+            count += 1
+            print "Box:   ",box, "\t Area:  ",box.area(), "\tAR:  ",float(box.width())/float(box.height())
+    avgW = int(float(width)/float(count))
+    avgH = int(float(height)/float(count))
+    print "Avg Width:  ",avgW, "\tAvg Height:  ", avgH
+    #Update the sliding window size based on input data
+    options.detection_window_size = avgW*avgH
+
+
     #Train
     detector = dlib.train_simple_object_detector(images, boxes, options)
     # We could save this detector to disk by uncommenting the following.
@@ -157,9 +173,9 @@ def main(argv):
             else:
                 verbose= True
         elif opt.lower() =="--threads":
-            threads = arg
+            threads = int(arg)
         elif opt.lower() == "--fit":
-            C = arg
+            C = int(arg)
         elif opt.lower() == "--symmetric":
             if(arg.lower() == "false"):
                 flip = False
