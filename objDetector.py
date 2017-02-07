@@ -16,6 +16,7 @@ from trainingImages import TrainingImages
 #Replaced with cv2, may slightly reduce overhead
 # from skimage import io
 import cv2
+import math
 
 #This is a generic object detection trainer.
 #This programs takes a training directory with images and json files of the 
@@ -26,108 +27,179 @@ import cv2
 #At the command line, pass the top directory that contains ./training and 
 #./testing directories. 
 
-def train(train,model,test,flips,C,threads,verbose):
+class PlateDetector(object):
 
-    # Now let's do the training.  The train_simple_object_detector() function has a
-    # bunch of options, all of which come with reasonable default values.  The next
-    # few lines goes over some of these options.
-    options = dlib.simple_object_detector_training_options()
+    @staticmethod
+    def train(train,model,test,flips,C,threads,verbose):
 
-    #**********************REMOVE!!!!!!!!!!!!!!!!!******************
-    #Since faces are left/right symmetric we can tell the trainer to train a
-    # symmetric detector.  This helps it get the most value out of the training
-    # data.
-    options.add_left_right_image_flips = flips
+        # Now let's do the training.  The train_simple_object_detector() function has a
+        # bunch of options, all of which come with reasonable default values.  The next
+        # few lines goes over some of these options.
+        options = dlib.simple_object_detector_training_options()
 
-    # The trainer is a kind of support vector machine and therefore has the usual
-    # SVM C parameter.  In general, a bigger C encourages it to fit the training
-    # data better but might lead to overfitting.  You must find the best C value
-    # empirically by checking how well the trained detector works on a test set of
-    # images you haven't trained on.  Don't just leave the value set at 5.  Try a
-    # few different C values and see what works best for your data.
-    options.C = C
-    # Tell the code how many CPU cores your computer has for the fastest training.
-    options.num_threads = threads
-    options.be_verbose = verbose
+        #**********************REMOVE!!!!!!!!!!!!!!!!!******************
+        #Since faces are left/right symmetric we can tell the trainer to train a
+        # symmetric detector.  This helps it get the most value out of the training
+        # data.
+        options.add_left_right_image_flips = flips
 
-
-    # You just need to put your images into a list. TrainingImages takes a folder
-    #and extracts the images and bounding boxes for each image
-    trainingSet = TrainingImages(train)
-    images = trainingSet.images
-
-    # Then for each image you make a list of rectangles which give the pixel
-    # locations of the edges of the boxes.
-    # And then you aggregate those lists of boxes into one big list and then call
-    # train_simple_object_detector().
-    boxes = trainingSet.boxes
-
-    testImages = images
-    testBoxes = boxes
-    if test != train:
-        testSet = TrainingImages(test)
-        testImages = testSet.images
-        testBoxes = testSet.boxes
-
-    count = 1
-    width = 0
-    height = 0
-    for i in boxes:
-        for box in i:
-            width += box.width()
-            height += box.height()
-            count += 1
-            print "Box:   ",box, "\t Area:  ",box.area(), "\tAR:  ",float(box.width())/float(box.height())
-    avgW = int(float(width)/float(count))
-    avgH = int(float(height)/float(count))
-    print "Avg Width:  ",avgW, "\tAvg Height:  ", avgH
-    #Update the sliding window size based on input data
-    options.detection_window_size = avgW*avgH
+        # The trainer is a kind of support vector machine and therefore has the usual
+        # SVM C parameter.  In general, a bigger C encourages it to fit the training
+        # data better but might lead to overfitting.  You must find the best C value
+        # empirically by checking how well the trained detector works on a test set of
+        # images you haven't trained on.  Don't just leave the value set at 5.  Try a
+        # few different C values and see what works best for your data.
+        options.C = C
+        # Tell the code how many CPU cores your computer has for the fastest training.
+        options.num_threads = threads
+        options.be_verbose = verbose
 
 
-    #Train
-    detector = dlib.train_simple_object_detector(images, boxes, options)
-    # We could save this detector to disk by uncommenting the following.
-    detector.save(model)
+        # You just need to put your images into a list. TrainingImages takes a folder
+        #and extracts the images and bounding boxes for each image
+        trainingSet = TrainingImages(train)
+        images = trainingSet.images
 
-    # Now let's look at its HOG filter!
-    # win_det.set_image(detector)
-    # dlib.hit_enter_to_continue()
-    win_det = dlib.image_window()
-    win_det.set_image(detector)
+        # Then for each image you make a list of rectangles which give the pixel
+        # locations of the edges of the boxes.
+        # And then you aggregate those lists of boxes into one big list and then call
+        # train_simple_object_detector().
+        boxes = trainingSet.boxes
 
-    # Note that you don't have to use the XML based input to
-    # test_simple_object_detector().  If you have already loaded your training
-    # images and bounding boxes for the objects then you can call it as shown
-    # below.
-    print("\nTraining accuracy: {}".format(
-        dlib.test_simple_object_detector(testImages, testBoxes, detector)))
+        testImages = images
+        testBoxes = boxes
+        if test != train:
+            testSet = TrainingImages(test)
+            testImages = testSet.images
+            testBoxes = testSet.boxes
+
+        count = 1
+        width = 0
+        height = 0
+
+        ##Calculating boxes, aspect ratios etc.  Need to break up!!
+        if not os.path.exists(train+"/masked"):
+            os.makedirs(train+"/masked")
+        aspRatios = []
+        for j,i in enumerate(boxes):
+            curImageName = trainingSet.imageNames[j]
+            print "Image: ", curImageName
+            newImage = images[j].copy()
+            aRs = []
+            for box in i:
+                cv2.rectangle(newImage, (box.top(),box.left()), (box.bottom(),box.right()), (255, 255, 255), thickness=-3)
+                width += box.width()
+                height += box.height()
+                aRs.append(float(box.width())/float(box.height()))
+                count += 1
+                print "Box:   ",box, "\t Area:  ",box.area(), "\tAR:  ",aRs
+            aspRatios.append(aRs)
+            print "\nAspect Ratios:  ",aspRatios
+            baseName = curImageName.split("/")[-1]
+            newImageName =  train+"/masked/"+(baseName).replace(".jpg","-boxes.jpg")
+            print "\nSaving:  ", newImageName,"\n"
+            cv2.imwrite(newImageName,newImage)
+                
+            
+        target_size = float(width/count)*float(height/count)
+        #Update the sliding window size based on input data
+        width, height,stdAr = PlateDetector.bestWindow(boxes, target_size=target_size)
+        print "New Width: ", width, "\tNew Height", height,"!!!"
+        targetAr = int(width*height)
+        options.detection_window_size = targetAr
+
+        for i,imgArs in enumerate(aspRatios):
+            for j, boxArs in enumerate(imgArs):
+                if boxArs > targetAr +stdAr or boxArs < targetAr -stdAr:
+                    print "Deleting box ",i," ",j
+                    del(boxes[i][j])
+                    print "New boxes:  ",boxes
+
+        #Train
+        detector = dlib.train_simple_object_detector(images, boxes, options)
+        # We could save this detector to disk by uncommenting the following.
+        detector.save(model)
+
+        # Now let's look at its HOG filter!
+        # win_det.set_image(detector)
+        # dlib.hit_enter_to_continue()
+        win_det = dlib.image_window()
+        win_det.set_image(detector)
+
+        # Note that you don't have to use the XML based input to
+        # test_simple_object_detector().  If you have already loaded your training
+        # images and bounding boxes for the objects then you can call it as shown
+        # below.
+        print("\nTraining accuracy: {}".format(
+            dlib.test_simple_object_detector(testImages, testBoxes, detector)))
 
 
-# Now let's run the detector over the images in the faces folder and display the
-# results.
-def detect(detector, objFolder):
+    # Now let's run the detector over the images in the faces folder and display the
+    # results.
+    @staticmethod
+    def detect(detector, objFolder):
 
-    # assert isinstance(detector, dlib.simple_object_detector), "{} Must be a dlib.simple_object_detector!".format(detector)
-    assert detector
-    detector = dlib.simple_object_detector(detector)
+        #assert isinstance(detector, dlib.simple_object_detector), "{} Must be a dlib.simple_object_detector!".format(detector)
+        assert detector
+        detector = dlib.simple_object_detector(detector)
 
-    print "Showing detections on the images in {}.".format(objFolder)
-    win = dlib.image_window()
-    for f in glob.glob(os.path.join(objFolder, "*.jpg")):
-        print("Processing file: {}".format(f))
-        img = cv2.imread(f)
-        dets = detector(img)
-        print("Number of faces detected: {}".format(len(dets)))
-        for k, d in enumerate(dets):
-            print("Detection {}: Left: {} Top: {} Right: {} Bottom: {}".format(
-                k, d.left(), d.top(), d.right(), d.bottom()))
+        print "Showing detections on the images in {}.".format(objFolder)
+        # win = dlib.image_window()
+        print "Files to process:\n ",glob.glob(os.path.join(objFolder, "*.jpg"))
+        for f in glob.glob(os.path.join(objFolder, "*.jpg")):
+            print("Processing file: {}".format(f))
+            img = cv2.imread(f)
+            dets = detector(img)
+            print("Number of faces detected: {}".format(len(dets)))
+            for k, d in enumerate(dets):
+                print("Detection {}: Left: {} Top: {} Right: {} Bottom: {}".format(
+                    k, d.left(), d.top(), d.right(), d.bottom()))
+                newImage =  f.replace(".jpg","")+"-detection-"+str(k)+".jpg"
+                print "Saving:  ", newImage
+                cv2.imwrite(newImage,img[d.top():d.bottom(),d.left():d.right(),:])
+                # cv2.imshow("image", img);
 
-        win.clear_overlay()
-        win.set_image(img)
-        win.add_overlay(dets)
-        dlib.hit_enter_to_continue()
-        sys.exit()
+            # win.clear_overlay()
+            # win.set_image(img)
+            # win.add_overlay(dets)
+            dlib.hit_enter_to_continue()
+            
+
+    @staticmethod
+    def bestWindow(boxes, target_size):
+        #width*#height == target_size
+        #width/#height == the average aspect ratio of the elements of boxes.
+        count = 1
+        width = []
+        height = []
+        for i in boxes:
+            for box in i:
+                width.append(box.width())
+                height.append(box.height())
+                count += 1
+                print "Box:   ",box, "\t Area:  ",box.area(), "\tAR:  ",float(box.width())/float(box.height())
+        avgW = float(sum(width))/len(width)#int(float(width)/float(count))
+        avgH = float(sum(height))/len(height)#int(float(height)/float(count))
+        diffW = [(x- avgW)**2 for x in width]
+        diffH = [(x- avgH)**2 for x in height]
+        stdW = float(sum(diffW)**0.5/len(width))
+        stdH = float(sum(diffH)**0.5/len(height))
+        size = avgW*avgH
+        scale = (target_size/size)**0.5
+        print "Avg Width:  ",avgW, "\tAvg Height:  ", avgH, "\t Size:  ", size,"\tScale:  ", scale
+        print "Standard deviations: Width ",stdW,"  Height ",stdH, " AR ", stdW/stdH
+      
+        newW = int(avgW*scale + 0.5)
+        newH = int(avgH*scale + 0.5)
+        
+        #Make sure the width and height never round to zero.
+        if newW == 0:
+            newW = 1
+        if newH == 0:
+            newH = 1
+
+        return newW,newH,stdW/stdH
+
 
 def main(argv):
 
@@ -136,14 +208,14 @@ def main(argv):
         print "DIRECTORY {} NOT FOUND!".format(objFolder)
         sys.exit(2)
     
-    trainDir = objFolder+"/training"
+    trainDir = (objFolder+"/training").replace("//","/")
     model = 'detector.svm'
     testDir = trainDir
     verbose = True
     C = 5
     threads = 4
     flip = True
-    detect = None
+    detector = None
 
     try:
         opts, args = getopt.getopt(argv[1:],"ht:m:v:d:",["test=","model=","threads=","fit=","verbose=","symmetric=","detect="])
@@ -152,14 +224,14 @@ def main(argv):
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'objDetector.py <directory> [-t] <options> [-v] ... '
+            print '\nobjDetector.py <directory> [-t] <options> [-v] ... '
             print "-t, --testdir <directory>\t Specify the test direcoty, defaults to the training directory."
-            print "-m, --model <modelOutput>\t, Specifies the name of the detector model output. Defaults to 'detector.svm'"
+            print "-m, --model <modelOutput>\t Specifies the name of the detector model output. Defaults to 'detector.svm'"
             print "-v,--verbose <True/False>\t Verbose output during training and testing."
             print "--threads <num threads>\t Specify the number of cores on the machine to optimize training. Defaults to 4."
             print "--fit <num>\t Specific the C parameter for the SVM, defaults to 5."
             print "--symmetric <True/False>\t Boolean, specify whether to make SVM training left/right symmtric."
-            print "\n\n-d, --detect <modelInput>\t This runs a detector on the specified directory. With the model specified"
+            print "\n-d, --detect <modelInput>\t This runs a detector on the specified directory. With the model specified"
             sys.exit()
 
         elif opt.lower() in ("-t", "--test"):
@@ -182,12 +254,13 @@ def main(argv):
             else:
                 flip = True
         elif opt.lower() in ("-d","--detect"):
-            detect = arg
+            detector = arg
 
-    if detect:
-        detect(detector,objFolder)
+    if detector:
+        PlateDetector.detect(detector,objFolder)
+        sys.exit(0)
 
-    train(trainDir,model,testDir,flip,C,threads,verbose)
+    PlateDetector.train(trainDir,model,testDir,flip,C,threads,verbose)
 
 if __name__=="__main__":
 
