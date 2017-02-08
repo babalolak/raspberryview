@@ -16,7 +16,7 @@ from trainingImages import TrainingImages
 #Replaced with cv2, may slightly reduce overhead
 # from skimage import io
 import cv2
-import math
+import numpy as np
 
 #This is a generic object detection trainer.
 #This programs takes a training directory with images and json files of the 
@@ -77,10 +77,13 @@ class PlateDetector(object):
         width = 0
         height = 0
 
-        ##Calculating boxes, aspect ratios etc.  Need to break up!!
+        ##Calculating boxes, aspect ratios etc.  ***May need to adjust logic
+        ##to accommodate ambiguity.
         if not os.path.exists(train+"/masked"):
             os.makedirs(train+"/masked")
         aspRatios = []
+        flatARs = []
+        dictARs = {}
         for j,i in enumerate(boxes):
             curImageName = trainingSet.imageNames[j]
             print "Image: ", curImageName
@@ -90,29 +93,46 @@ class PlateDetector(object):
                 cv2.rectangle(newImage, (box.top(),box.left()), (box.bottom(),box.right()), (255, 255, 255), thickness=-3)
                 width += box.width()
                 height += box.height()
-                aRs.append(float(box.width())/float(box.height()))
+                ar = float(box.width())/float(box.height())
+                aRs.append(ar)
+                dictARs[ar]=box
+                flatARs.append(ar)
                 count += 1
                 print "Box:   ",box, "\t Area:  ",box.area(), "\tAR:  ",aRs
+
             aspRatios.append(aRs)
-            print "\nAspect Ratios:  ",aspRatios
+            print "\nAspect Ratios:  ",aspRatios, "\nDictionary: ", dictARs
             baseName = curImageName.split("/")[-1]
             newImageName =  train+"/masked/"+(baseName).replace(".jpg","-boxes.jpg")
             print "\nSaving:  ", newImageName,"\n"
             cv2.imwrite(newImageName,newImage)
-                
+        
+        ##Calculating the mean and standard deviation (May not need mean
+        ##not currently using it...)
+        aRMean = np.mean(flatARs,0)
+        aRStd = np.std(flatARs,0)
+
+        print "Aspect Ratio Mean:  ", aRMean, "  Std:  ", aRStd
             
         target_size = float(width/count)*float(height/count)
         #Update the sliding window size based on input data
-        width, height,stdAr = PlateDetector.bestWindow(boxes, target_size=target_size)
+        width, height = PlateDetector.bestWindow(boxes, target_size=target_size)
+        targetSize= int(width*height)
+        targetAr= float(width)/height
+        options.detection_window_size = targetSize
         print "New Width: ", width, "\tNew Height", height,"!!!"
-        targetAr = int(width*height)
-        options.detection_window_size = targetAr
-
+        print "Target size:  ", targetSize, "  Target AR:  ", targetAr
+        
+        ##Deleting boxes with aspect ratios that are above or below the target
+        ##aspect ratio plus one standard deviation.  bestWindow estimates a target
+        ##aspect ratio close to (but not exactly) the mean.  This logic was borrowed
+        ##from a dlib C++ HOG training example.  Not sure why they didn't just use the 
+        ##mean, but this seems to work fine.
         for i,imgArs in enumerate(aspRatios):
-            for j, boxArs in enumerate(imgArs):
-                if boxArs > targetAr +stdAr or boxArs < targetAr -stdAr:
-                    print "Deleting box ",i," ",j
-                    del(boxes[i][j])
+            for boxArs in imgArs:
+                if (boxArs > (targetAr +aRStd)) or (boxArs < (targetAr -aRStd)):
+                    print "Deleting box ",dictARs[boxArs]
+                    boxes[i].remove(dictARs[boxArs])
                     print "New boxes:  ",boxes
 
         #Train
@@ -180,14 +200,9 @@ class PlateDetector(object):
                 print "Box:   ",box, "\t Area:  ",box.area(), "\tAR:  ",float(box.width())/float(box.height())
         avgW = float(sum(width))/len(width)#int(float(width)/float(count))
         avgH = float(sum(height))/len(height)#int(float(height)/float(count))
-        diffW = [(x- avgW)**2 for x in width]
-        diffH = [(x- avgH)**2 for x in height]
-        stdW = float(sum(diffW)**0.5/len(width))
-        stdH = float(sum(diffH)**0.5/len(height))
         size = avgW*avgH
         scale = (target_size/size)**0.5
         print "Avg Width:  ",avgW, "\tAvg Height:  ", avgH, "\t Size:  ", size,"\tScale:  ", scale
-        print "Standard deviations: Width ",stdW,"  Height ",stdH, " AR ", stdW/stdH
       
         newW = int(avgW*scale + 0.5)
         newH = int(avgH*scale + 0.5)
@@ -198,7 +213,7 @@ class PlateDetector(object):
         if newH == 0:
             newH = 1
 
-        return newW,newH,stdW/stdH
+        return newW,newH
 
 
 def main(argv):
