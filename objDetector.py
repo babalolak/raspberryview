@@ -79,6 +79,8 @@ class PlateDetector(object):
 
         ##Calculating boxes, aspect ratios etc.  ***May need to adjust logic
         ##to accommodate ambiguity.
+        ##Also saving new masked images to disk to verify the correct
+        ##annotations are being detected.
         if not os.path.exists(train+"/masked"):
             os.makedirs(train+"/masked")
         aspRatios = []
@@ -174,9 +176,15 @@ class PlateDetector(object):
             for k, d in enumerate(dets):
                 print("Detection {}: Left: {} Top: {} Right: {} Bottom: {}".format(
                     k, d.left(), d.top(), d.right(), d.bottom()))
+              
                 newImage =  f.replace(".jpg","")+"-detection-"+str(k)+".jpg"
                 print "Saving:  ", newImage
-                cv2.imwrite(newImage,img[d.top():d.bottom(),d.left():d.right(),:])
+                cv2.imwrite(newImage,img[d.left():d.right(),d.top():d.bottom(),:])
+                cv2.rectangle(img, (d.top(),d.left()), (d.bottom(),d.right()), (255, 255, 255), thickness=-3)
+            maskedImage = f.replace(".jpg","")+"-mask.jpg"
+            print "Saving:  ", maskedImage
+            cv2.imwrite(maskedImage, img)
+                
                 # cv2.imshow("image", img);
 
             # win.clear_overlay()
