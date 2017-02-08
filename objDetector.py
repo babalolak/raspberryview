@@ -167,21 +167,24 @@ class PlateDetector(object):
 
         print "Showing detections on the images in {}.".format(objFolder)
         # win = dlib.image_window()
-        print "Files to process:\n ",glob.glob(os.path.join(objFolder, "*.jpg"))
+        if not os.path.exists(objFolder+"/detections"):
+            os.makedirs(objFolder+"/detections")
+
         for f in glob.glob(os.path.join(objFolder, "*.jpg")):
             print("Processing file: {}".format(f))
             img = cv2.imread(f)
             dets = detector(img)
-            print("Number of faces detected: {}".format(len(dets)))
+            baseName = f.split("/")[-1]
+            print("Number of plates detected: {}".format(len(dets)))
             for k, d in enumerate(dets):
                 print("Detection {}: Left: {} Top: {} Right: {} Bottom: {}".format(
                     k, d.left(), d.top(), d.right(), d.bottom()))
               
-                newImage =  f.replace(".jpg","")+"-detection-"+str(k)+".jpg"
+                newImage =  objFolder+"/detections/"+baseName.replace(".jpg","-detection-"+str(k)+".jpg")
                 print "Saving:  ", newImage
                 cv2.imwrite(newImage,img[d.left():d.right(),d.top():d.bottom(),:])
                 cv2.rectangle(img, (d.top(),d.left()), (d.bottom(),d.right()), (255, 255, 255), thickness=-3)
-            maskedImage = f.replace(".jpg","")+"-mask.jpg"
+            maskedImage = objFolder+"/detections/"+baseName.replace(".jpg","-mask.jpg")
             print "Saving:  ", maskedImage
             cv2.imwrite(maskedImage, img)
                 
