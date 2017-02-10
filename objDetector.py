@@ -287,6 +287,28 @@ def main(argv):
         sys.exit(0)
 
     PlateDetector.train(trainDir,model,testDir,flip,C,threads,verbose)
+##REIMPLEMENT USING THIS!!!!
+    # Parse command line arguments and return the hyperparameter dictionary H.
+    # H first loads the --hypes hypes.json file and is further updated with
+    # additional arguments as needed.
+    # '''
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('--weights', default=None, type=str)
+    # parser.add_argument('--gpu', default=None, type=int)
+    # parser.add_argument('--hypes', required=True, type=str)
+    # parser.add_argument('--logdir', default='output', type=str)
+    # args = parser.parse_args()
+    # with open(args.hypes, 'r') as f:
+    #     H = json.load(f)
+    # if args.gpu is not None:
+    #     H['solver']['gpu'] = args.gpu
+    # if len(H.get('exp_name', '')) == 0:
+    #     H['exp_name'] = args.hypes.split('/')[-1].replace('.json', '')
+    # H['save_dir'] = args.logdir + '/%s_%s' % (H['exp_name'],
+    #     datetime.datetime.now().strftime('%Y_%m_%d_%H.%M'))
+    # if args.weights is not None:
+    #     H['solver']['weights'] = args.weights
+    # train(H, test_images=[])
 
 if __name__=="__main__":
 
