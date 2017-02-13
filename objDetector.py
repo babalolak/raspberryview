@@ -230,7 +230,10 @@ class PlateDetector(object):
 def main(argv):
 
     objFolder = argv[0]
-    if not os.path.exists(unicode(objFolder)):
+    if objFolder in ("-h"):
+        argv.append("-h")
+        argv[1] = '-h'
+    elif not os.path.exists(unicode(objFolder)):
         print "DIRECTORY {} NOT FOUND!".format(objFolder)
         sys.exit(2)
     

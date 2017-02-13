@@ -25,12 +25,19 @@ class TrainingImages(object):
 			print "No such folder found in file system.  Check name:  ", folderIn
 
 	def loadTraining(self,folderIn):
+		self.lif2json(folderIn)
 		self.loadFiles(folderIn)
 		if self.imageNames:
-			img2Json = lambda i: i.replace("."+i.split(".")[-1],"-labels.lif")
+			img2Json = lambda i: i.replace("."+i.split(".")[-1],"-labels.json")
 			for i in self.imageNames:
 				self.boxes.append(BoundingBoxes(img2Json(i)).calcBB()) 
 			print "Bounding boxes:  ", self.boxes
+
+	#Convert .lif file to .json files if used older version of lable me.
+	def lif2json(self,dir):
+		for pathAndFilename in glob.iglob(os.path.join(dir, "*.lif")):
+			os.rename(pathAndFilename, pathAndFilename.replace(".lif",".json"))
+
 
 	#Saves to a JSON file that lists image path and rectangles
 	def saveTraining(self, outfile):
