@@ -17,6 +17,7 @@ from trainingImages import TrainingImages
 # from skimage import io
 import cv2
 import numpy as np
+import argparse
 
 #This is a generic object detection trainer.
 #This programs takes a training directory with images and json files of the 
@@ -65,6 +66,11 @@ class PlateDetector(object):
         # And then you aggregate those lists of boxes into one big list and then call
         # train_simple_object_detector().
         boxes = trainingSet.boxes
+
+        if not images or not boxes:
+            print "Training set is empty.  Check input directory for images and proper \
+            formating of bounding box files!"
+            sys.exit(2)
 
         testImages = images
         testBoxes = boxes
@@ -209,8 +215,8 @@ class PlateDetector(object):
                 height.append(box.height())
                 count += 1
                 print "Box:   ",box, "\t Area:  ",box.area(), "\tAR:  ",float(box.width())/float(box.height())
-        avgW = float(sum(width))/len(width)#int(float(width)/float(count))
-        avgH = float(sum(height))/len(height)#int(float(height)/float(count))
+        avgW = float(sum(width))/len(width)
+        avgH = float(sum(height))/len(height)
         size = avgW*avgH
         scale = (target_size/size)**0.5
         print "Avg Width:  ",avgW, "\tAvg Height:  ", avgH, "\t Size:  ", size,"\tScale:  ", scale
@@ -227,100 +233,50 @@ class PlateDetector(object):
         return newW,newH
 
 
-def main(argv):
+def main():
 
-    objFolder = argv[0]
-    if objFolder in ("-h"):
-        argv.append("-h")
-        argv[1] = '-h'
-    elif not os.path.exists(unicode(objFolder)):
-        print "DIRECTORY {} NOT FOUND!".format(objFolder)
-        sys.exit(2)
-    
+    parser = argparse.ArgumentParser(description="A vehicle to train an object detector \
+        model or to use model to perform object detection.")
+    parser.add_argument('dir', default=os.getcwd(), nargs='?', help="Specify target directory. \
+        If training, this is the directory that contains the training directory. If detecting \
+        this is the the directory of images on which to perform the detections.")
+    parser.add_argument('-t','--testdir',default=None, help="Specify the test \
+        directory, defaults to the training directory.")
+    parser.add_argument('-m','--model', default='detector.svm', help="Specifies the name \
+        of the detector model output. Defaults to 'detector.svm'")
+    parser.add_argument('-v','--verbose',action='store_true', help="Verbose output during \
+        training and testing or executing.")
+    parser.add_argument('--threads', default=4, type=int, help="Specify the number of cores \
+        on the machine to optimize training. Defaults to 4.")
+    parser.add_argument('--fit', default=5, type=int, help="Specify the C parameter for the \
+        SVM, defaults to 5.")
+    parser.add_argument('-a','--asymmetric', action='store_false', help="Boolean, specify not \
+        to make SVM training left/right symmtric.")
+    parser.add_argument('-d','--detect', default = None, help="This runs a detector on the specified directory.\
+        With the model specified")
+
+    args = parser.parse_args()
+
+    objFolder = args.dir
     trainDir = (objFolder+"/training").replace("//","/")
-    model = 'detector.svm'
-    testDir = trainDir
-    verbose = True
-    C = 5
-    threads = 4
-    flip = True
-    detector = None
+    if args.testdir is not None:
+        trainDir = args.testdir
+    else:
+        testDir = trainDir
+    model = args.model
+    verbose = args.verbose
+    C = args.fit
+    threads = args.threads
+    flip = args.asymmetric
+    detector = args.detect
 
-    try:
-        opts, args = getopt.getopt(argv[1:],"ht:m:v:d:",["test=","model=","threads=","fit=","verbose=","symmetric=","detect="])
-    except getopt.GetoptError:
-        print 'test.py -i <inputfile> -o <outputfile>'
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print '\nobjDetector.py <directory> [-t] <options> [-v] ... '
-            print "-t, --testdir <directory>\t Specify the test direcoty, defaults to the training directory."
-            print "-m, --model <modelOutput>\t Specifies the name of the detector model output. Defaults to 'detector.svm'"
-            print "-v,--verbose <True/False>\t Verbose output during training and testing."
-            print "--threads <num threads>\t Specify the number of cores on the machine to optimize training. Defaults to 4."
-            print "--fit <num>\t Specific the C parameter for the SVM, defaults to 5."
-            print "--symmetric <True/False>\t Boolean, specify whether to make SVM training left/right symmtric."
-            print "\n-d, --detect <modelInput>\t This runs a detector on the specified directory. With the model specified"
-            sys.exit()
-
-        elif opt.lower() in ("-t", "--test"):
-            testDir = arg
-
-        elif opt.lower() in ("-m", "--model"):
-            model = arg
-        elif opt.lower() in ("-v", "--verbose"):
-            if(arg.lower() == "false"):
-                verbose = False
-            else:
-                verbose= True
-        elif opt.lower() =="--threads":
-            threads = int(arg)
-        elif opt.lower() == "--fit":
-            C = int(arg)
-        elif opt.lower() == "--symmetric":
-            if(arg.lower() == "false"):
-                flip = False
-            else:
-                flip = True
-        elif opt.lower() in ("-d","--detect"):
-            detector = arg
-
-    if detector:
+    if detector is not None:
         PlateDetector.detect(detector,objFolder)
         sys.exit(0)
 
     PlateDetector.train(trainDir,model,testDir,flip,C,threads,verbose)
-##REIMPLEMENT USING THIS!!!!
-    # Parse command line arguments and return the hyperparameter dictionary H.
-    # H first loads the --hypes hypes.json file and is further updated with
-    # additional arguments as needed.
-    # '''
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('--weights', default=None, type=str)
-    # parser.add_argument('--gpu', default=None, type=int)
-    # parser.add_argument('--hypes', required=True, type=str)
-    # parser.add_argument('--logdir', default='output', type=str)
-    # args = parser.parse_args()
-    # with open(args.hypes, 'r') as f:
-    #     H = json.load(f)
-    # if args.gpu is not None:
-    #     H['solver']['gpu'] = args.gpu
-    # if len(H.get('exp_name', '')) == 0:
-    #     H['exp_name'] = args.hypes.split('/')[-1].replace('.json', '')
-    # H['save_dir'] = args.logdir + '/%s_%s' % (H['exp_name'],
-    #     datetime.datetime.now().strftime('%Y_%m_%d_%H.%M'))
-    # if args.weights is not None:
-    #     H['solver']['weights'] = args.weights
-    # train(H, test_images=[])
 
 if __name__=="__main__":
 
-    if len(sys.argv) < 2:
-        print(
-            "Give the path to the directory that contains training data as the argument to this "
-            "program. For example:\n"
-            "python ./objDectory.py ./data")
-        exit()
-
-    main(sys.argv[1:])
+    main()
 

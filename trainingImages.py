@@ -17,10 +17,12 @@ class TrainingImages(object):
 
 	def loadFiles(self,folderIn):
 		if os.path.exists(unicode(folderIn)):
-		
-			self.imageNames.extend(item for i in (glob.glob(folderIn+'/*.%s' % ext) for ext in ["jpg","gif","png","tga"]) for item in i)
-			self.images.extend(cv2.imread(item) for item in self.imageNames)
-			print "Loaded training images.  First image title:  ", self.imageNames[0]
+			try:
+				self.imageNames.extend(item for i in (glob.glob(folderIn+'/*.%s' % ext) for ext in ["jpg","gif","png","tga"]) for item in i)
+				self.images.extend(cv2.imread(item) for item in self.imageNames)
+				print "Loaded training images.  First image title:  ", self.imageNames[0]
+			except Exception, e:
+				print "Error loading images.!\n",e
 		else:
 			print "No such folder found in file system.  Check name:  ", folderIn
 
@@ -32,6 +34,8 @@ class TrainingImages(object):
 			for i in self.imageNames:
 				self.boxes.append(BoundingBoxes(img2Json(i)).calcBB()) 
 			print "Bounding boxes:  ", self.boxes
+		else:
+			print "No images found!"
 
 	#Convert .lif file to .json files if used older version of lable me.
 	def lif2json(self,dir):
